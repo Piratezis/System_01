@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.env
+.venv/
+venv/
+
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and reports
+logs/
+*.log
+
+# Sessions / runtime
+session_*
+*.session
+
+# Reports and artifacts
+*.pdf
+*.html
+storage/**/analysis/*.html
+storage/**/analysis/*.pdf
+
+# Cache
+.cache/
+.scrapy/
+
+# Вспомогательные модули и черновики:
+redactor.py
+lib/
+dejavu-fonts-ttf-2.37/
+DejaVuSans.ttf
+storage/
+
+
