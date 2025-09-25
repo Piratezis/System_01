@@ -40,6 +40,25 @@ MESSAGE_FETCH_LIMIT = 1000
 #     "LANG_CODE": ,
 #     "SYSTEM_LANG_CODE": ,
 # }
+class TelegramAPISettings:
+    """Безопасные настройки для обхода ограничений"""
+
+    # Для выгрузки сообщений (чтение) - ОБНОВЛЕННЫЕ ЗНАЧЕНИЯ
+    MESSAGES_PER_REQUEST = 50  # Было 100, стало 50 (как в вашем коде)
+    DELAY_BETWEEN_REQUESTS = 5  # Было 2, стало 5 (как в вашем коде)
+    DELAY_BETWEEN_MESSAGES = 0.1  # Было 0.5, стало 0.1 (как в вашем коде)
+    MAX_MESSAGES_PER_SESSION = 500  # Было 1000, стало 500 (как в вашем коде)
+
+    # Для получения информации о пользователях
+    USERS_PER_REQUEST = 10  # Пользователей за запрос
+    DELAY_BETWEEN_USER_REQUESTS = 5  # 5 секунд - самые строгие ограничения
+
+    # Общие настройки
+    MAX_RETRIES = 3  # Максимум попыток повтора
+    FLOOD_WAIT_MULTIPLIER = 1.5  # Умножать время ожидания
+
+
+
 class CommandLineArgument:
     """Обозначение командных аргументов"""
     FLAG = "--"
