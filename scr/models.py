@@ -344,70 +344,97 @@ class TelegramChat(Chat):
                 LogMessages.ERROR_ENTITY_FETCH_FAILED.format(chat_id=self.chat_id)
             ) from e
 
-    async def get_messages(self):
+        async def get_messages(self):
         messages = []
-        async for message in self.client.iter_messages(self.entity, reverse=True):
-            if not getattr(message, "text", None):
-                continue
+        message_count = 0
 
-            author_name = MessageKeys.UNKNOWN_AUTHOR
-            author_id = None
+        try:
+            async for message in self.client.iter_messages(self.entity,
+                                                           reverse=True,
+                                                           limit=500):  # Добавил limit
+                if message_count >= 500:  # Дополнительная проверка
+                    break
 
-            # 1) Если есть реальный отправитель (пользователь) — используем его данные
-            if getattr(message, "sender", None):
-                sender_entity = await self.client.get_entity(message.sender)
-                # Проверяем типы корректно — используйте реальные классы из Telethon
-                if isinstance(sender_entity, TelethonUser):
-                    author_id = sender_entity.id
-                    if getattr(sender_entity, "last_name", None):
-                        author_name = FileTemplates.FULL_NAME_TEMPLATE.format(
-                            first_name=getattr(sender_entity, "first_name", "") or "",
-                            last_name=getattr(sender_entity, "last_name", "") or "",
-                        )
-                    else:
-                        author_name = getattr(
-                            sender_entity, "first_name", MessageKeys.UNKNOWN_AUTHOR
-                        )
-                elif isinstance(sender_entity, (Channel, PeerChannel)):
-                    author_id = getattr(sender_entity, "id", None)
-                    title = getattr(sender_entity, TelegramEntityAttributes.TITLE, None)
-                    author_name = title or MessageKeys.UNKNOWN_AUTHOR
-                else:
-                    author_name = MessageKeys.UNKNOWN_AUTHOR
+                if not getattr(message, "text", None):
+                    continue
 
-            # 2) Если реального автора нет, но это анонимный пост от имени канала
-            elif getattr(message, "sender_chat", None):
-                sender_chat = await self.client.get_entity(message.sender_chat)
-                author_id = getattr(sender_chat, "id", None)
-                title = getattr(sender_chat, TelegramEntityAttributes.TITLE, None)
-                author_name = f"{title or MessageKeys.UNKNOWN_AUTHOR} [channel]"
+                # ЗАДЕРЖКА КАЖДЫЕ 50 СООБЩЕНИЙ
+                if message_count > 0 and message_count % 50 == 0:
+                    logger.info(
+                        f"Обработано {message_count} сообщений. Пауза 5 секунд...")
+                    await asyncio.sleep(5)
 
-            # 3) Фолбэк: используем чат/канал как источник
-            else:
-                try:
-                    chat_entity = await self.client.get_entity(self.entity)
-                    if isinstance(chat_entity, (Channel, PeerChannel)):
-                        author_id = getattr(chat_entity, "id", None)
-                        title = getattr(
-                            chat_entity, TelegramEntityAttributes.TITLE, None
-                        )
+                # ВАШ СУЩЕСТВУЮЩИЙ КОД (без изменений)
+                author_name = MessageKeys.UNKNOWN_AUTHOR
+                author_id = None
+
+                if getattr(message, "sender", None):
+                    sender_entity = await self.client.get_entity(
+                        message.sender)
+                    if isinstance(sender_entity, TelethonUser):
+                        author_id = sender_entity.id
+                        if getattr(sender_entity, "last_name", None):
+                            author_name = FileTemplates.FULL_NAME_TEMPLATE.format(
+                                first_name=getattr(sender_entity, "first_name",
+                                                   "") or "",
+                                last_name=getattr(sender_entity, "last_name",
+                                                  "") or "",
+                            )
+                        else:
+                            author_name = getattr(
+                                sender_entity, "first_name",
+                                MessageKeys.UNKNOWN_AUTHOR
+                            )
+                    elif isinstance(sender_entity, (Channel, PeerChannel)):
+                        author_id = getattr(sender_entity, "id", None)
+                        title = getattr(sender_entity,
+                                        TelegramEntityAttributes.TITLE, None)
                         author_name = title or MessageKeys.UNKNOWN_AUTHOR
-                except Exception:
-                    # можно логировать исключение для отладки
-                    pass
+                    else:
+                        author_name = MessageKeys.UNKNOWN_AUTHOR
 
-            message_dict = {
-                MessageKeys.MESSAGE_ID: message.id,
-                MessageKeys.USER_ID: author_id,
-                MessageKeys.MESSAGE_TEXT: message.text,
-                MessageKeys.AUTHOR_NAME: author_name,
-                MessageKeys.DATE: (
-                    message.date.isoformat() if getattr(message, "date", None) else None
-                ),
-                MessageKeys.REPLY_TO_ID: getattr(message, "reply_to_msg_id", None),
-            }
-            messages.append(message_dict)
+                elif getattr(message, "sender_chat", None):
+                    sender_chat = await self.client.get_entity(
+                        message.sender_chat)
+                    author_id = getattr(sender_chat, "id", None)
+                    title = getattr(sender_chat,
+                                    TelegramEntityAttributes.TITLE, None)
+                    author_name = f"{title or MessageKeys.UNKNOWN_AUTHOR} [channel]"
 
+                else:
+                    try:
+                        chat_entity = await self.client.get_entity(self.entity)
+                        if isinstance(chat_entity, (Channel, PeerChannel)):
+                            author_id = getattr(chat_entity, "id", None)
+                            title = getattr(chat_entity,
+                                            TelegramEntityAttributes.TITLE,
+                                            None)
+                            author_name = title or MessageKeys.UNKNOWN_AUTHOR
+                    except Exception:
+                        pass
+
+                message_dict = {
+                    MessageKeys.MESSAGE_ID: message.id,
+                    MessageKeys.USER_ID: author_id,
+                    MessageKeys.MESSAGE_TEXT: message.text,
+                    MessageKeys.AUTHOR_NAME: author_name,
+                    MessageKeys.DATE: (
+                        message.date.isoformat() if getattr(message, "date",
+                                                            None) else None
+                    ),
+                    MessageKeys.REPLY_TO_ID: getattr(message,
+                                                     "reply_to_msg_id", None),
+                }
+                messages.append(message_dict)
+                message_count += 1
+
+                # НЕБОЛЬШАЯ ЗАДЕРЖКА МЕЖДУ КАЖДЫМ СООБЩЕНИЕМ
+                await asyncio.sleep(0.1)
+
+        except Exception as e:
+            logger.error(f"Ошибка при выгрузке сообщений: {e}")
+
+        logger.info(f"Выгрузка завершена. Сообщений: {len(messages)}")
         return messages
 
     async def get_list_users(self):
