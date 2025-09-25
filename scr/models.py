@@ -344,25 +344,25 @@ class TelegramChat(Chat):
                 LogMessages.ERROR_ENTITY_FETCH_FAILED.format(chat_id=self.chat_id)
             ) from e
 
-        async def get_messages(self):
+            async def get_messages(self):
         messages = []
         message_count = 0
 
         try:
             async for message in self.client.iter_messages(self.entity,
                                                            reverse=True,
-                                                           limit=500):  # Добавил limit
-                if message_count >= 500:  # Дополнительная проверка
+                                                           limit=TelegramAPISettings.MAX_MESSAGES_PER_SESSION):  # Добавил limit
+                if message_count >= TelegramAPISettings.MAX_MESSAGES_PER_SESSION:  # Дополнительная проверка
                     break
 
                 if not getattr(message, "text", None):
                     continue
 
                 # ЗАДЕРЖКА КАЖДЫЕ 50 СООБЩЕНИЙ
-                if message_count > 0 and message_count % 50 == 0:
+                if message_count > 0 and message_count % TelegramAPISettings.MESSAGES_PER_REQUEST == 0:
                     logger.info(
-                        f"Обработано {message_count} сообщений. Пауза 5 секунд...")
-                    await asyncio.sleep(5)
+                        f"Обработано {message_count} сообщений. Пауза {TelegramAPISettings.DELAY_BETWEEN_REQUESTS} секунд...")
+                    await asyncio.sleep(TelegramAPISettings.DELAY_BETWEEN_REQUESTS)
 
                 # ВАШ СУЩЕСТВУЮЩИЙ КОД (без изменений)
                 author_name = MessageKeys.UNKNOWN_AUTHOR
@@ -429,7 +429,7 @@ class TelegramChat(Chat):
                 message_count += 1
 
                 # НЕБОЛЬШАЯ ЗАДЕРЖКА МЕЖДУ КАЖДЫМ СООБЩЕНИЕМ
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(TelegramAPISettings.DELAY_BETWEEN_MESSAGES)
 
         except Exception as e:
             logger.error(f"Ошибка при выгрузке сообщений: {e}")
